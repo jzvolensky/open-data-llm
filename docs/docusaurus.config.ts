@@ -91,8 +91,21 @@ const config: Config = {
             {label: 'OpenData Bratislava', href: 'https://data.bratislava.sk'},
           ],
         },
+        {
+          title: 'Author',
+          items: [
+            {
+              label: 'Juraj Zvolenský (@jzvolensky)',
+              href: 'https://github.com/jzvolensky',
+            },
+            {
+              label: 'open-data-llm',
+              href: 'https://github.com/jzvolensky/open-data-llm',
+            },
+          ],
+        },
       ],
-      copyright: `Built with Docusaurus. Data: OpenData Bratislava (CC BY 4.0).`,
+      copyright: `© ${new Date().getFullYear()} Juraj Zvolenský · Built with Docusaurus · Data: OpenData Bratislava (CC BY 4.0).`,
     },
     prism: {
       theme: prismThemes.github,

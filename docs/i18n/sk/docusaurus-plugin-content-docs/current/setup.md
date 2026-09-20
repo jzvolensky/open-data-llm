@@ -75,6 +75,14 @@ otázky.
 
 ## 4. Spustenie
 
+`make setup` nainštaluje `bdata` do virtuálneho prostredia projektu (`.venv/bin/bdata`),
+takže je na `PATH` len keď je toto prostredie aktívne. Buď pred príkazy píšte `uv run`,
+alebo prostredie raz na shell aktivujte:
+
+```bash
+source .venv/bin/activate
+```
+
 ```bash
 bdata ask "Koľko priestupkov bolo v Ružinove v roku 2025?"
 bdata search "kvalita ovzdušia"

@@ -34,6 +34,26 @@ bdata mcp      # expose tools over MCP (stdio)
 `make help` lists every target. Each pipeline stage is available on its own
 (`make ingest`, `make index`, …) so you can run the project step by step.
 
+### Running `bdata`
+
+`make setup` installs `bdata` as a console script into the project virtualenv
+(`.venv/bin/bdata`), so it is on `PATH` only when that environment is active. Two ways:
+
+```bash
+uv run bdata ask "..."      # no activation needed
+
+# or activate the venv once per shell
+source .venv/bin/activate
+bdata ask "..."
+```
+
+To have `bdata` available everywhere, install it as a tool (run it from the repo so
+`config.yaml` and `data/` are found):
+
+```bash
+uv tool install --editable '.[mlx,rerank,api,mcp]'
+```
+
 ## Common commands
 
 | Command | Purpose |

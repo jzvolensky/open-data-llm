@@ -27,6 +27,14 @@ def test_places_in() -> None:
     assert "petrzalka" in vocab.places_in("Petržalka")
 
 
+def test_places_in_multiword_inflection() -> None:
+    assert "zahorska-bystrica" in vocab.places_in("pozemky v Záhorskej Bystrici")
+    assert "nove-mesto" in vocab.places_in("koľko v Novom Meste")
+    assert "stare-mesto" in vocab.places_in("koľko v Starom Meste")
+    assert "podunajske-biskupice" in vocab.places_in("v Podunajských Biskupiciach")
+    assert vocab.places_in("datasety o doprave") == set()
+
+
 def test_place_slug() -> None:
     assert vocab.place_slug("Ružinov") == "ruzinov"
     assert vocab.place_slug("Staré Mesto") == "stare-mesto"

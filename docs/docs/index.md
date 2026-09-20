@@ -62,6 +62,7 @@ make setup     # install dependencies (uv)
 make model     # download the 12 GB model (resumable, optional to start)
 make build     # ingest -> download -> graph -> index -> data -> geo
 
+source .venv/bin/activate    # so `bdata` is on PATH (or prefix with `uv run`)
 bdata ask "Koľko priestupkov bolo v Ružinove v roku 2025?"
 ```
 

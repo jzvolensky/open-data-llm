@@ -62,6 +62,7 @@ make setup     # inštalácia závislostí (uv)
 make model     # stiahnutie 12 GB modelu (obnoviteľné, voliteľné na začiatok)
 make build     # ingest -> download -> graph -> index -> data -> geo
 
+source .venv/bin/activate    # aby bol `bdata` na PATH (alebo použite `uv run`)
 bdata ask "Koľko priestupkov bolo v Ružinove v roku 2025?"
 ```
 

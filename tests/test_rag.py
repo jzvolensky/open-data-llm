@@ -20,6 +20,14 @@ def test_district_extraction_excludes_city_wide() -> None:
     assert _district("koľko parciel je v Bratislave?") is None
 
 
+def test_district_multiword_and_specificity() -> None:
+    assert _district("koľko pozemkov v Záhorskej Bystrici?") == "Záhorská Bystrica"
+    assert _district("koľko v Novom Meste?") == "Nové Mesto"
+    assert _district("koľko v Starom Meste?") == "Staré Mesto"
+    # Must prefer the specific district over the shorter, overlapping one.
+    assert _district("koľko v Devínskej Novej Vsi?") == "Devínska Nová Ves"
+
+
 def test_grounding_requires_district_filter() -> None:
     table = "ds_x_csv"
     target = ("Katastrálne územie", "Petržalka")

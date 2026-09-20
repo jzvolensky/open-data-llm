@@ -73,6 +73,14 @@ is enough; the data and geo steps enable SQL and spatial questions.
 
 ## 4. Run it
 
+`make setup` installs `bdata` into the project virtualenv (`.venv/bin/bdata`), so it is on
+`PATH` only when that environment is active. Either prefix commands with `uv run`, or
+activate the venv once per shell:
+
+```bash
+source .venv/bin/activate
+```
+
 ```bash
 bdata ask "Koľko priestupkov bolo v Ružinove v roku 2025?"
 bdata search "air quality"

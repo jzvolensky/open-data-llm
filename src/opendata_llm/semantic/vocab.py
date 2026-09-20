@@ -446,7 +446,7 @@ def stem(word: str) -> str:
     """Reduce a (possibly inflected) Slovak word to an approximate stem."""
     folded = fold(word)
     for suffix in _SUFFIXES:
-        if len(folded) - len(suffix) >= 4 and folded.endswith(suffix):
+        if len(folded) - len(suffix) >= 3 and folded.endswith(suffix):
             return folded[: -len(suffix)]
     return folded
 
@@ -499,19 +499,35 @@ def concepts_in(text: str | None) -> set[str]:
 
 
 def places_in(text: str | None) -> set[str]:
-    """Match district names, tolerating Slovak inflection (Petržalke -> Petržalka)."""
+    """Match district names, tolerating Slovak inflection.
+
+    Handles single words (``Ružinove`` -> Ružinov) and multi-word names with
+    inflection or reordered words (``Záhorskej Bystrici`` -> Záhorská Bystrica,
+    ``Novom Meste`` -> Nové Mesto).
+    """
     if not text:
         return set()
     folded = fold(text)
     padded = f" {folded} "
     words = folded.split()
+    word_stems = [stem(word) for word in words]
     found: set[str] = set()
     for slug, label in PLACES.items():
         term = fold(label)
-        if " " in term:
-            if f" {term} " in padded:
+        if " " not in term:
+            if any(stems_match(word, term) for word in words):
                 found.add(slug)
-        elif any(stems_match(word, term) for word in words):
+            continue
+        if f" {term} " in padded:  # exact phrase fast path
+            found.add(slug)
+            continue
+        needed = [stem(part) for part in term.split()]
+        matched = [n for n in needed if any(stems_match(n, ws) for ws in word_stems)]
+        # Either every word of the district matches, or a distinctive (longer)
+        # word matches, which tolerates short generic words (e.g. "Ves", "Mesto").
+        if len(matched) == len(needed) or (
+            len(needed) >= 2 and any(len(n) >= 5 for n in matched)
+        ):
             found.add(slug)
     return found
 
@@ -524,12 +540,11 @@ def place_slug(name: str | None) -> str | None:
     for slug, label in PLACES.items():
         if fold(label) == folded:
             return slug
-    words = folded.split()
-    for slug, label in PLACES.items():
-        term = fold(label)
-        if " " not in term and any(stems_match(word, term) for word in words):
-            return slug
-    return None
+    found = places_in(name)
+    if not found:
+        return None
+    # Prefer the most specific (longest) match, e.g. Devínska Nová Ves over Devín.
+    return max(found, key=lambda slug: len(fold(PLACES[slug])))
 
 
 def label_for(concept_id: str, lang: str = "sk") -> str:

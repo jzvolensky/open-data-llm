@@ -23,8 +23,20 @@
     "message": "OpenData Bratislava",
     "description": "Odkaz v pätičke"
   },
+  "link.title.Author": {
+    "message": "Autor",
+    "description": "Nadpis stĺpca v pätičke"
+  },
+  "link.item.label.Juraj Zvolenský (@jzvolensky)": {
+    "message": "Juraj Zvolenský (@jzvolensky)",
+    "description": "Odkaz na autora"
+  },
+  "link.item.label.open-data-llm": {
+    "message": "open-data-llm",
+    "description": "Odkaz na repozitár"
+  },
   "copyright": {
-    "message": "Vytvorené s Docusaurus. Dáta: OpenData Bratislava (CC BY 4.0).",
+    "message": "© 2026 Juraj Zvolenský · Vytvorené s Docusaurus · Dáta: OpenData Bratislava (CC BY 4.0).",
     "description": "Text autorských práv v pätičke"
   }
 }

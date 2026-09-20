@@ -260,8 +260,12 @@ def _stem_overlap(stems: list[str], text: str) -> int:
 
 
 def _district(query: str) -> str | None:
-    places = sorted(vocab.places_in(query) - {"bratislava"})
-    return vocab.PLACES[places[0]] if places else None
+    places = vocab.places_in(query) - {"bratislava"}
+    if not places:
+        return None
+    # Prefer the most specific district (e.g. Devínska Nová Ves over Devín).
+    slug = max(places, key=lambda s: len(vocab.fold(vocab.PLACES[s])))
+    return vocab.PLACES[slug]
 
 
 def _candidates(
