@@ -41,6 +41,18 @@ to `main` that touches `docs/`.
 2. Push to `main` (or run the **docs** workflow manually from the Actions tab).
 3. The site is published at `https://<owner>.github.io/<repo>/`.
 
+### If a deploy fails
+
+`No artifacts named "github-pages" were found for this workflow run` means the `deploy`
+job ran without the `build` job's artifact. The usual cause is using **Re-run failed
+jobs**, which re-runs only `deploy` and does not re-upload the artifact. Instead:
+
+> Actions → **docs** → **Re-run all jobs** (or push a new commit).
+
+Also confirm **Settings → Pages → Source** is **GitHub Actions** (not "Deploy from a
+branch"). The workflow uses the current Pages actions (`configure-pages@v6`,
+`upload-pages-artifact@v5`, `deploy-pages@v5`) which run on Node 24.
+
 The workflow derives `DOCS_URL`/`DOCS_BASE_URL` from the repository, so the base path is
 correct for both project pages (`/<repo>/`) and user pages (`/`). To test locally with a
 base path:

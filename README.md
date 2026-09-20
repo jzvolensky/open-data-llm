@@ -92,4 +92,4 @@ make docs            # static build (EN + SK)
 ## License
 
 Data: CC BY 4.0 (attribution above). Models retain their own licences
-(EuroLLM, bge-m3, bge-reranker). Add a project code licence before publishing.
+(EuroLLM, bge-m3, bge-reranker).
