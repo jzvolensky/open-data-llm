@@ -1,0 +1,14 @@
+{
+  "title": {
+    "message": "Bratislava Open Data LLM",
+    "description": "Názov v navigačnom paneli"
+  },
+  "item.label.Documentation": {
+    "message": "Dokumentácia",
+    "description": "Označenie odkazu v navigácii"
+  },
+  "item.label.data.bratislava.sk": {
+    "message": "data.bratislava.sk",
+    "description": "Označenie odkazu na portál"
+  }
+}

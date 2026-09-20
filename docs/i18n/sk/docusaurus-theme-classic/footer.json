@@ -1,0 +1,30 @@
+{
+  "link.title.Documentation": {
+    "message": "Dokumentácia",
+    "description": "Nadpis stĺpca v pätičke"
+  },
+  "link.item.label.Architecture": {
+    "message": "Architektúra",
+    "description": "Odkaz v pätičke"
+  },
+  "link.item.label.Models": {
+    "message": "Modely",
+    "description": "Odkaz v pätičke"
+  },
+  "link.item.label.Evaluation": {
+    "message": "Vyhodnotenie",
+    "description": "Odkaz v pätičke"
+  },
+  "link.title.Data": {
+    "message": "Dáta",
+    "description": "Nadpis stĺpca v pätičke"
+  },
+  "link.item.label.OpenData Bratislava": {
+    "message": "OpenData Bratislava",
+    "description": "Odkaz v pätičke"
+  },
+  "copyright": {
+    "message": "Vytvorené s Docusaurus. Dáta: OpenData Bratislava (CC BY 4.0).",
+    "description": "Text autorských práv v pätičke"
+  }
+}

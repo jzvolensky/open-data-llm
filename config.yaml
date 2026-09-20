@@ -1,0 +1,45 @@
+portal:
+  base_url: "https://data.bratislava.sk"
+  dcat_feed: "/api/feed/dcat-ap/2.1.1"
+  search_collection: "dataset"
+  search_page_size: 100
+  user_agent: "open-data-llm/0.1 (open data RAG; local use)"
+  request_timeout: 60.0
+  max_retries: 3
+
+paths:
+  db: "data/catalog.duckdb"
+  raw: "data/raw"
+  downloads: "data/downloads"
+
+ingest:
+  feature_concurrency: 4
+  feature_request_delay: 0.0
+
+download:
+  # Skip any single file larger than this many bytes (default 25 MiB).
+  max_bytes: 26214400
+  data_formats: ["CSV", "GEOJSON", "XLSX", "TXT", "KML"]
+
+embeddings:
+  provider: "ollama"
+  model: "bge-m3"
+  host: "http://localhost:11434"
+  dim: 1024
+  batch_size: 16
+  timeout: 180.0
+
+search:
+  top_k: 10
+  candidates: 20
+  rrf_k: 60
+  rerank: true
+  rerank_model: "BAAI/bge-reranker-v2-m3"
+
+generation:
+  # MLX runs natively on Apple Silicon via mlx-lm (no Ollama needed).
+  # Can be a local directory or a Hugging Face repo id.
+  provider: "mlx"
+  model: "models/EuroLLM-22B-4bit"
+  max_tokens: 384
+  temperature: 0.2

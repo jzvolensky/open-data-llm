@@ -1,0 +1,28 @@
+{"id": "q01", "lang": "sk", "query": "Koľko priestupkov eviduje mestská polícia podľa mestských častí?", "expect": ["počet priestupkov podľa mestských častí"]}
+{"id": "q02", "lang": "sk", "query": "Emisie znečisťujúcich látok podľa monitorovacích staníc", "expect": ["emisie základných znečisťujúcich látok podľa monitorovacích staníc"]}
+{"id": "q03", "lang": "sk", "query": "Cestovné poriadky MHD vo formáte GTFS", "expect": ["cestovné poriadky mhd"]}
+{"id": "q04", "lang": "en", "query": "public transport schedules in GTFS format", "expect": ["cestovné poriadky mhd"]}
+{"id": "q05", "lang": "sk", "query": "Zoznam a počet základných škôl v Bratislave", "expect": ["základných škôl"]}
+{"id": "q06", "lang": "sk", "query": "Špeciálne materské školy v Bratislave", "expect": ["špeciálne materské školy"]}
+{"id": "q07", "lang": "sk", "query": "Cyklotrasy podľa dopravného priestoru a krytu vozovky", "expect": ["cyklotrasy v bratislave podľa dopravného priestoru"]}
+{"id": "q08", "lang": "sk", "query": "Zmluvy magistrátu na stavebné práce", "expect": ["zmluvy (stavebné práce)"]}
+{"id": "q09", "lang": "en", "query": "bus stops for tourist buses", "expect": ["zastávok turistických autobusov"]}
+{"id": "q10", "lang": "sk", "query": "Počet návštevníkov mestskej knižnice", "expect": ["návštevníkov mestskej knižnice"]}
+{"id": "q11", "lang": "sk", "query": "Počet prechádzajúcich chodcov podľa sčítačov", "expect": ["prechádzajúcich chodcov"]}
+{"id": "q12", "lang": "sk", "query": "Prejazdy vozidiel podľa sčítačov za hodinu", "expect": ["prejazdov vozidiel podľa sčítačov"]}
+{"id": "q13", "lang": "sk", "query": "Spotreba vody na obyvateľa na deň", "expect": ["spotreba vody na obyvateľa"]}
+{"id": "q14", "lang": "en", "query": "water consumption per capita per day", "expect": ["spotreba vody na obyvateľa"]}
+{"id": "q15", "lang": "sk", "query": "Účtovné tržby Dopravného podniku Bratislava", "expect": ["účtovné tržby podniku dopravný podnik"]}
+{"id": "q16", "lang": "en", "query": "revenue of the Bratislava public transport company", "expect": ["účtovné tržby podniku dopravný podnik"]}
+{"id": "q17", "lang": "sk", "query": "Riziko horúčav pre obyvateľov", "expect": ["riziko horúčav pre obyvateľov"]}
+{"id": "q18", "lang": "en", "query": "climate change risk for the city", "expect": ["riziko na zmenu klímy"]}
+{"id": "q19", "lang": "sk", "query": "Pasport stromov v Bratislave", "expect": ["pasport stromy"]}
+{"id": "q20", "lang": "sk", "query": "Počet lekárov na tisíc obyvateľov", "expect": ["počet lekárov na 1 000 obyvateľov"]}
+{"id": "q21", "lang": "en", "query": "air pollution by operator and emissions", "expect": ["znečisťovanie ovzdušia podľa prevádzkovateľa"]}
+{"id": "q22", "lang": "sk", "query": "Zameranie verejnej zelene", "expect": ["zameranie verejnej zelene"]}
+{"id": "q23", "lang": "sk", "query": "Chovné a veterinárne zariadenia", "expect": ["chovné a veterinárne"]}
+{"id": "q24", "lang": "en", "query": "emissions from large stationary sources", "expect": ["emisie základných látok vypustených"]}
+{"id": "q25", "lang": "sk", "query": "Veková skladba vozidiel MHD - električky", "expect": ["veková skladba dopravných vozidiel mhd"]}
+{"id": "q26", "lang": "sk", "query": "Dĺžka cyklistickej siete v Bratislave", "expect": ["cyklistickej siete"]}
+{"id": "q27", "lang": "en", "query": "kindergarten placement map for 2026", "expect": ["rajonizácia materských škôl", "materských škôl"]}
+{"id": "q28", "lang": "sk", "query": "Objem čistenej vody v čističkách odpadových vôd", "expect": ["čistenej vody v čističkách"]}
