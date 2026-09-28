@@ -46,6 +46,7 @@ _STAT_TABLES = (
     "graph_edges",
     "dataset_concepts",
     "data_tables",
+    "column_values",
     "geo_tables",
 )
 
@@ -92,7 +93,7 @@ def _strip_views(db_path: Path) -> None:
         for (name,) in views:
             if name.startswith(("ds_", "geo_")):
                 con.execute(f'DROP VIEW IF EXISTS "{name}"')  # noqa: S608
-        for table in ("data_tables", "geo_tables"):
+        for table in ("data_tables", "column_values", "geo_tables"):
             try:
                 con.execute(f"DELETE FROM {table}")  # noqa: S608
             except duckdb.Error:

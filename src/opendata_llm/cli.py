@@ -285,6 +285,29 @@ def data_load(
         console.print(f"[yellow]  {error}[/yellow]")
 
 
+@data_app.command("profile")
+def data_profile(
+    config: str | None = typer.Option(None, "--config", "-c"),
+    limit: int | None = typer.Option(None, help="Max datasets to profile"),
+    max_distinct: int | None = typer.Option(None, help="Max distinct values per column"),
+) -> None:
+    """Build the low-cardinality value dictionary (column_values)."""
+    from .query.profile import MAX_DISTINCT, profile_columns
+
+    cfg, catalog, client = _open(config)
+    client.close()
+    with catalog, console.status("Profiling column values..."):
+        stats = profile_columns(
+            catalog, max_distinct=max_distinct or MAX_DISTINCT, limit=limit
+        )
+    console.print(
+        f"[green]Profiled columns.[/green] {stats['columns']} columns / "
+        f"{stats['values']} values from {stats['ok']} tables"
+    )
+    for error in stats.get("errors_sample", []):
+        console.print(f"[yellow]  {error}[/yellow]")
+
+
 @data_app.command("list")
 def data_list(config: str | None = typer.Option(None, "--config", "-c")) -> None:
     """List cached data tables."""
@@ -377,40 +400,86 @@ def _print_rows(columns: list[str], rows: list[tuple[object, ...]]) -> None:
 def eval_cmd(
     config: str | None = typer.Option(None, "--config", "-c"),
     questions: str | None = typer.Option(None, help="Path to questions.jsonl"),
+    qtype: str = typer.Option(
+        "all", "--type", help="all|discovery|data|geo|abstain|followup"
+    ),
     top_k: int | None = typer.Option(None, help="Results per query"),
     candidates: int | None = typer.Option(None, help="Candidates per retriever"),
     rerank: bool | None = typer.Option(None, "--rerank/--no-rerank"),
+    report: bool = typer.Option(True, "--report/--no-report", help="Write a dated JSON report"),
+    provider: str | None = typer.Option(None, help="Override generation provider"),
 ) -> None:
-    """Evaluate retrieval against the gold question set."""
-    from .eval.run import evaluate, load_questions
+    """Evaluate retrieval and data answering against the typed gold set."""
+    from .eval.run import DATA_TYPES, TYPES, evaluate, load_questions, write_report
+    from .generate import build_generator
+
+    if qtype != "all" and qtype not in TYPES:
+        raise typer.BadParameter(f"--type must be all or one of {', '.join(TYPES)}")
 
     cfg, catalog, client = _open(config)
     client.close()
-    with catalog, console.status("Evaluating retrieval..."):
-        report = evaluate(cfg, catalog, load_questions(questions), top_k, candidates, rerank)
+    selected = load_questions(questions)
+    if qtype != "all":
+        selected = [q for q in selected if q.type == qtype]
 
-    table = Table(title=f"Eval (top_k={report['top_k']}, rerank={report['rerank']})")
-    table.add_column("id")
-    table.add_column("lang")
-    table.add_column("hit", justify="center")
-    table.add_column("rr", justify="right")
-    table.add_column("ndcg", justify="right")
-    table.add_column("query")
-    for row in report["details"]:
-        table.add_row(
-            row["id"],
-            row["lang"],
-            "✓" if row["hit"] else "✗",
-            f"{row['rr']:.2f}",
-            f"{row['ndcg']:.2f}",
-            row["query"][:48],
+    generator = None
+    rewrite = None
+    if any(q.type in DATA_TYPES for q in selected):
+        if provider:
+            cfg.generation.provider = provider
+        generator = build_generator(cfg)
+
+        def rewrite(query: str, turns: list[dict[str, str]]) -> str:
+            from .generate.rag import rewrite_query
+
+            assert generator is not None
+            return rewrite_query(generator, query, turns)
+
+    with catalog, console.status(f"Evaluating ({qtype})..."):
+        result = evaluate(
+            cfg,
+            catalog,
+            selected,
+            top_k,
+            candidates,
+            rerank,
+            generator=generator,
+            rewrite=rewrite,
         )
+
+    table = Table(
+        title=f"Eval ({qtype}, top_k={result['top_k']}, rerank={result['rerank']})"
+    )
+    table.add_column("id")
+    table.add_column("type")
+    table.add_column("ok", justify="center")
+    table.add_column("ms", justify="right")
+    table.add_column("query")
+    for row in result["details"]:
+        if row.get("skipped"):
+            mark = "·"
+        else:
+            mark = "✓" if row.get("passed") else "✗"
+        ms = row.get("data_ms", row["retrieval_ms"])
+        table.add_row(row["id"], row["type"], mark, f"{ms:.0f}", row["query"][:44])
     console.print(table)
     console.print(
-        f"[bold]recall@k={report['recall@k']:.3f}  "
-        f"MRR={report['mrr']:.3f}  nDCG@k={report['ndcg@k']:.3f}  "
-        f"({report['questions']} questions)[/bold]"
+        f"[bold]recall@k={result['recall@k']:.3f}  MRR={result['mrr']:.3f}  "
+        f"nDCG@k={result['ndcg@k']:.3f}  exec={result['execution_accuracy']:.3f}  "
+        f"abstain={result['abstention_accuracy']:.3f}  "
+        f"resolve={result['resolution_accuracy']:.3f}  "
+        f"geo={result['geo_accuracy']:.3f}  ({result['questions']} questions)[/bold]"
     )
+    latency = result["latency"]
+    console.print(
+        f"[dim]latency ms · retrieval p50={latency['retrieval_ms']['p50']} "
+        f"p90={latency['retrieval_ms']['p90']} p95={latency['retrieval_ms']['p95']} · "
+        f"data p50={latency['data_ms']['p50']} p90={latency['data_ms']['p90']} "
+        f"p95={latency['data_ms']['p95']}[/dim]"
+    )
+    if report:
+        path = write_report(result, Path(cfg.root) / "reports" / "eval")
+        console.print(f"[dim]report: {path}[/dim]")
 
 
 @app.command("ask")
@@ -420,6 +489,9 @@ def ask_cmd(
     top_k: int | None = typer.Option(None, help="Number of datasets for context"),
     rerank: bool | None = typer.Option(None, "--rerank/--no-rerank"),
     provider: str | None = typer.Option(None, help="Override generation provider"),
+    turn: list[str] | None = typer.Option(
+        None, "--turn", help="Previous turn as role:content (repeatable)"
+    ),
 ) -> None:
     """Answer a question grounded in the catalog."""
     from .generate import build_generator
@@ -430,8 +502,11 @@ def ask_cmd(
     if provider:
         cfg.generation.provider = provider
     generator = build_generator(cfg)
+    history = _parse_turns(turn)
     with catalog, console.status("Retrieving and generating..."):
-        result = rag_answer(cfg, catalog, query, generator, top_k=top_k, rerank=rerank)
+        result = rag_answer(
+            cfg, catalog, query, generator, top_k=top_k, rerank=rerank, history=history
+        )
 
     console.print(Panel(result.answer, title=f"ask (intent={result.intent})"))
     if result.data:
@@ -465,6 +540,16 @@ def mcp_cmd(config: str | None = typer.Option(None, "--config", "-c")) -> None:
     from .mcp_server import create_server
 
     create_server(config).run()
+
+
+def _parse_turns(turns: list[str] | None) -> list[dict[str, str]]:
+    history: list[dict[str, str]] = []
+    for turn in turns or []:
+        role, separator, content = turn.partition(":")
+        if not separator:
+            role, content = "user", turn
+        history.append({"role": role.strip() or "user", "content": content.strip()})
+    return history
 
 
 def _resolve_dataset(catalog: Catalog, needle: str) -> str | None:

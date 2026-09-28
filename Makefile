@@ -20,6 +20,7 @@ PACK_OUT ?= release
 FULL ?= 0
 DOCS_PORT ?= 3000
 DOCS_LOCALE ?= en
+EVAL_TYPE ?= all
 
 .PHONY: help setup model ingest download graph index data geo build \
 	ask search serve mcp eval pack restore test lint typecheck docs docs-serve \
@@ -55,8 +56,9 @@ graph: ## Build the semantic knowledge graph
 index: ## Build dataset cards, embeddings and the BM25 index
 	$(PY) bdata index build --config $(CONFIG)
 
-data: ## Expose downloaded CSVs as DuckDB views
+data: ## Expose downloaded CSVs as DuckDB views and profile column values
 	$(PY) bdata data load --config $(CONFIG)
+	$(PY) bdata data profile --config $(CONFIG)
 
 geo: ## Build the district gazetteer and load spatial layers
 	$(PY) bdata geo build --config $(CONFIG)
@@ -84,8 +86,8 @@ serve: ## Start the web API (see PORT)
 mcp: ## Run the MCP server over stdio
 	$(PY) bdata mcp --config $(CONFIG)
 
-eval: ## Evaluate retrieval against the gold question set
-	$(PY) bdata eval --config $(CONFIG)
+eval: ## Evaluate typed cases (EVAL_TYPE=all|discovery|data|geo|abstain|followup)
+	$(PY) bdata eval --type $(EVAL_TYPE) --config $(CONFIG)
 
 pack: ## Build a shareable knowledge pack (FULL=1 to include downloads)
 	$(PY) python scripts/pack.py --config $(CONFIG) --out $(PACK_OUT) \

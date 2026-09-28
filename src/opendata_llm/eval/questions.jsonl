@@ -26,3 +26,15 @@
 {"id": "q26", "lang": "sk", "query": "Dĺžka cyklistickej siete v Bratislave", "expect": ["cyklistickej siete"]}
 {"id": "q27", "lang": "en", "query": "kindergarten placement map for 2026", "expect": ["rajonizácia materských škôl", "materských škôl"]}
 {"id": "q28", "lang": "sk", "query": "Objem čistenej vody v čističkách odpadových vôd", "expect": ["čistenej vody v čističkách"]}
+{"id": "d01", "type": "data", "lang": "sk", "query": "Koľko priestupkov eviduje mestská polícia v Ružinove v roku 2025?", "expect": ["priestupkov"], "gold": 14302, "dataset": "priestupk", "district": "Ružinov", "year": 2025}
+{"id": "d02", "type": "data", "lang": "sk", "query": "Koľko pozemkov vo vlastníctve hlavného mesta sa nachádza v Petržalke k 31.12.2020?", "expect": ["pozemky"], "gold": 7056, "dataset": "pozemk", "district": "Petržalka", "year": 2020}
+{"id": "d03", "type": "data", "lang": "sk", "query": "Koľko majetku mesta Bratislava sa nachádza v Záhorskej Bystrici k 31.12.2025?", "expect": ["majetok"], "gold": 1203, "dataset": "majetok", "district": "Záhorská Bystrica", "year": 2025}
+{"id": "d04", "type": "data", "lang": "sk", "query": "Koľko priestupkov eviduje mestská polícia v Starom Meste v roku 2025?", "expect": ["priestupkov"], "gold": 19250, "dataset": "priestupk", "district": "Staré Mesto", "year": 2025}
+{"id": "d05", "type": "data", "lang": "sk", "query": "Koľko priestupkov eviduje mestská polícia v Novom Meste v roku 2025?", "expect": ["priestupkov"], "gold": 20704, "dataset": "priestupk", "district": "Nové Mesto", "year": 2025}
+{"id": "a01", "type": "abstain", "lang": "sk", "query": "Koľko obyvateľov žije na Marse podľa bratislavských otvorených dát?", "expect": [], "note": "mimo rozsahu portálu"}
+{"id": "a02", "type": "abstain", "lang": "en", "query": "How many private jets are registered in Bratislava open data?", "expect": [], "note": "not on the portal"}
+{"id": "g01", "type": "geo", "lang": "sk", "query": "Ktoré datasety pokrývajú územie Petržalky?", "expect": [], "district": "Petržalka"}
+{"id": "g02", "type": "geo", "lang": "sk", "query": "Čo sa týka Devínskej Novej Vsi?", "expect": [], "district": "Devínska Nová Ves"}
+{"id": "g03", "type": "geo", "lang": "sk", "query": "Datasety pre Staré Mesto", "expect": [], "district": "Staré Mesto"}
+{"id": "f01", "type": "followup", "lang": "sk", "query": "A koľko ich bolo v Petržalke?", "expect": ["priestupkov"], "gold": 18163, "dataset": "priestupk", "district": "Petržalka", "year": 2025, "history": [{"role": "user", "content": "Koľko priestupkov eviduje mestská polícia v Ružinove v roku 2025?"}, {"role": "assistant", "content": "V Ružinove bolo v roku 2025 evidovaných 14 302 priestupkov."}]}
+{"id": "f02", "type": "followup", "lang": "sk", "query": "A koľko v Ružinove?", "expect": ["pozemky"], "gold": 4514, "dataset": "pozemk", "district": "Ružinov", "year": 2020, "history": [{"role": "user", "content": "Koľko pozemkov vlastní mesto v Petržalke k 31.12.2020?"}, {"role": "assistant", "content": "V Petržalke to bolo 7 056 pozemkov."}]}

@@ -65,6 +65,31 @@ def strip_html(value: Any) -> str | None:
     return text.strip()
 
 
+_DECIMAL_COMMA = re.compile(r"^-?\d+,\d{1,2}$")
+_THOUSANDS = re.compile(r"^-?\d{1,3}([.,]\d{3})+$")
+
+
+def as_number(value: Any) -> float | None:
+    """Parse a number tolerating ``14 302`` / ``14.302`` / ``14,302`` / ``1,5``."""
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    raw = str(value).strip().replace("\u00a0", " ").replace("'", "")
+    raw = re.sub(r"\s+", "", raw)
+    if not raw:
+        return None
+    if _DECIMAL_COMMA.match(raw):
+        raw = raw.replace(",", ".")
+    elif _THOUSANDS.match(raw):
+        raw = raw.replace(",", "").replace(".", "")
+    raw = raw.replace(",", "")
+    try:
+        return float(raw)
+    except ValueError:
+        return None
+
+
 def as_list(value: Any) -> list[Any]:
     if value is None:
         return []

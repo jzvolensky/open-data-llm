@@ -20,11 +20,13 @@ flowchart TD
     C1 --> A[Odpoveď EuroLLM + citácie]
     D1 --> A
     D2 --> A
+    A --> V[Deterministické overenie · čísla + URL]
 ```
 
 Router je malý klasifikátor založený na pravidlách. Otázky tvaru „koľko", „how many",
 „priemer" posiela do dátovej roviny, ostatné do katalógovej. Geopriestorové otázky môžu
-využiť obe.
+využiť obe. Nadväzujúce otázky sa najprv prepíšu na samostatnú otázku pomocou histórie
+konverzácie od klienta.
 
 ## Komponenty
 
@@ -32,9 +34,9 @@ využiť obe.
 - **Sémantická vrstva** (`semantic/`) – riadený slovník SK/EN a znalostný graf datasetov, konceptov, vydavateľov, formátov a mestských častí.
 - **Index** (`index/`) – karty datasetov, embeddingy, BM25.
 - **Vyhľadávanie** (`retrieve/`) – hybrid BM25 + vektory + koncepty + mestské časti, zlúčené pomocou RRF, následne reranking cross-encoderom.
-- **Dátová rovina** (`query/`) – iba na čítanie SQL nad uloženými tabuľkami a živý ArcGIS klient.
+- **Dátová rovina** (`query/`) – iba na čítanie SQL nad uloženými tabuľkami, slovník nízkokardinalitných hodnôt `column_values` a živý ArcGIS klient.
 - **Geopriestor** (`geo/`) – gazetteer mestských častí a priestorové spoje cez DuckDB `spatial`.
-- **Generovanie** (`generate/`) – MLX poskytovateľ, prompty, RAG orchestrácia a router.
+- **Generovanie** (`generate/`) – MLX poskytovateľ, prompty, RAG orchestrácia, router a deterministické overenie odpovede.
 - **Rozhrania** – CLI (`cli.py`), FastAPI (`app/`) a MCP server (`mcp_server.py`).
 
 ## Tok dát
@@ -43,7 +45,7 @@ využiť obe.
 2. `download` uloží distribučné súbory do `data/downloads/` s limitom veľkosti.
 3. `graph build` normalizuje kľúčové slová a kategórie na 19 dvojjazyčných konceptov a pridá hrany podobnosti (IDF vážený prienik) a kurátorské väzby `related`.
 4. `index build` vytvorí kartu pre každý dataset, vloží embedding `bge-m3` a postaví FTS index.
-5. `ask` vyberie kandidátov, prerankuje ich a odpovie buď z kariet, alebo spustí SQL nad uloženou tabuľkou.
+5. `ask` prepíše nadväzujúcu otázku na samostatnú, vyberie a prerankuje kandidátov a odpovie buď z kariet, alebo spustí podložený SQL nad uloženou tabuľkou. Odpovede sa overujú deterministicky (čísla a citované zdroje).
 
 ## Rozhodnutia a ich dôvody
 
@@ -52,6 +54,8 @@ využiť obe.
 - **Viackolové sťahovanie vyhľadávania** – API stránkuje po 100 s nestabilným poradím; spája sa viac prechodov, kým sa nedosiahne `numberMatched` unikátnych záznamov.
 - **DuckDB na všetko** – jeden lokálny súbor drží katalóg, graf, vektory, FTS index aj uložené tabuľky (so `spatial` pre geometriu).
 - **Graf + koncepty** – čisté embeddingy nezachytia slovenskú slovnú zásobu portálu. Kanonické koncepty a mestské časti zjednocujú správanie SK a EN otázok.
+- **Bezstavové nadväzujúce otázky** – klient posiela posledné ťahy; server prepisuje iba najnovšiu otázku, takže sa neukladá žiadny stav relácie.
+- **Deterministické overenie** – odpovede sa kontrolujú pravidlami voči evidencii, nie druhým (pomalším a nedeterministickým) volaním modelu.
 
 ## Latencia a streamovanie
 

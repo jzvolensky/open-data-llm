@@ -32,9 +32,10 @@ bdata-pack/
   NOTICE             # atribúcia CC BY 4.0
 ```
 
-Metadatový balík je malý (~5 MB). Pohľady na uložené tabuľky sa zámerne vynechávajú, aby
-bol balík konzistentný aj bez CSV; ak chcete dátovú rovinu offline, po obnovení spustite
-`make download && make data`.
+Metadatový balík je malý (~5 MB). Pohľady na uložené tabuľky, register `data_tables` aj
+odvodený slovník `column_values` sa zámerne vynechávajú, aby bol balík konzistentný aj bez
+CSV; ak chcete dátovú rovinu offline (vrátane presného priraďovania hodnôt), po obnovení
+spustite `make download && make data`.
 
 ## Vytvorenie a obnovenie
 

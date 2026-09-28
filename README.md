@@ -40,7 +40,7 @@ bdata mcp      # expose tools over MCP (stdio)
 (`.venv/bin/bdata`), so it is on `PATH` only when that environment is active. Two ways:
 
 ```bash
-uv run bdata ask "..."      # no activation needed
+uv run bdata ask "..." 
 
 # or activate the venv once per shell
 source .venv/bin/activate

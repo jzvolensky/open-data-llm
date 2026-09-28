@@ -72,7 +72,40 @@ bdata data live "počet priestupkov podľa mestských častí" \
 ```
 
 The assistant uses the same paths automatically: for data questions it generates a
-`SELECT`, runs it read-only, and feeds the result back to the model.
+`SELECT`, runs it read-only, and feeds the result back to the model. Every answer is then
+verified deterministically — each number must be grounded in the query result and each
+cited URL must be one of the retrieved sources. Failures are reported as warnings
+(`answer_verified`), without a second model call.
+
+Rebuild the value dictionary (also part of `make data`):
+
+```bash
+bdata data profile
+```
+
+## Value dictionary and ambiguity
+
+`make data` profiles every loaded table into `column_values`: the distinct values of
+low-cardinality columns (≤ 50 distinct, first 200k rows). The dictionary is used to
+
+- resolve a district to its exact stored spelling,
+- offer the model the real values of columns the question quotes, and
+- detect a requested category that the data does not define.
+
+When a question asks for a category that does not exist (e.g. *obytné* among
+`Druh pozemku`), the assistant does not guess or refuse. It returns the real breakdown
+of that column and notes that the requested category is not defined.
+
+## Multi-turn questions
+
+The server stays stateless: the client sends the recent turns and the server rewrites the
+latest question into a standalone query before retrieval and SQL.
+
+- API: `POST /ask` and `POST /ask/stream` accept an optional
+  `history: [{role, content}, ...]` (the last ~6 turns).
+- CLI: `bdata ask "A koľko v Ružinove?" --turn "user:Koľko pozemkov v Petržalke?"`.
+- The streaming endpoint emits a `rewriting` status event and returns the rewritten query
+  in the `sources` event.
 
 ## Geospatial
 

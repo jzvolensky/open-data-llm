@@ -1,6 +1,16 @@
 from __future__ import annotations
 
-from opendata_llm.generate.rag import _district, _grounded, _query_stems, _stem_overlap
+from opendata_llm.generate.rag import (
+    _ambiguity,
+    _district,
+    _grounded,
+    _normalize_sql,
+    _pick_category_column,
+    _query_stems,
+    _requested_category,
+    _stem_overlap,
+    _value_lines,
+)
 
 
 def test_query_stems_handle_inflection() -> None:
@@ -37,3 +47,53 @@ def test_grounding_requires_district_filter() -> None:
     assert _grounded(table, bad, "Petržalka", target) is False
     assert _grounded("ds_y_csv", good, "Petržalka", target) is False
     assert _grounded(table, bad, None, None) is True
+
+
+def test_normalize_sql_fixes_single_quoted_identifiers() -> None:
+    columns = ["Katastrálne územie", "ROK"]
+    sql = "SELECT * FROM t WHERE 'Katastrálne územie' = 'Petržalka'"
+    assert _normalize_sql(sql, columns) == (
+        'SELECT * FROM t WHERE "Katastrálne územie" = \'Petržalka\''
+    )
+
+
+def test_pick_category_column_prefers_label_over_code() -> None:
+    profiled = {
+        "Druh pozemku - kód": ["13.0", "14.0"],
+        "Druh pozemku - názov": ["Záhrady", "Orná pôda"],
+    }
+    assert _pick_category_column(profiled) == "Druh pozemku - názov"
+
+
+def test_requested_category_detects_unknown_modifier() -> None:
+    profiled = {
+        "Druh pozemku - kód": ["13.0", "14.0"],
+        "Druh pozemku - názov": ["Zastavané plochy a nádvoria", "Lesné pozemky"],
+    }
+    title = "Pozemky vo vlastníctve hlavného mesta"
+    assert _requested_category("Koľko obytných pozemkov?", title, profiled) == (
+        "Druh pozemku - názov",
+        "obytných",
+    )
+    # A known value, a district and a plain count question are not category misses.
+    assert _requested_category("Koľko lesných pozemkov?", title, profiled) is None
+    assert _requested_category("Koľko pozemkov v Petržalke?", title, profiled) is None
+
+
+def test_ambiguity_flags_unknown_filter_value() -> None:
+    profiled = {"Druh": ["A", "B"]}
+    assert _ambiguity('SELECT * FROM t WHERE "Druh" = \'C\'', profiled) == ("Druh", "C")
+    assert _ambiguity('SELECT * FROM t WHERE "Druh" = \'A\'', profiled) is None
+
+
+def test_value_lines_require_whole_words() -> None:
+    profiled = {
+        "Katastrálne územie": ["Petržalka", "Ružinov"],
+        "Správa - názov": ["vlastnı"],
+    }
+    assert _value_lines(profiled, "Zaujíma ma Ružinov") == [
+        'Prípustné hodnoty stĺpca "Katastrálne územie": \'Ružinov\'. '
+        "Použi presne uvedený tvar."
+    ]
+    # Inflected district and a noisy partial value must not become filter hints.
+    assert _value_lines(profiled, "koľko pozemkov v Petržalke vlastní mesto") == []

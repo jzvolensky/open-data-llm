@@ -18,19 +18,13 @@ SYSTEM = (
 SQL_SYSTEM = (
     "Si expert na DuckDB SQL. Na základe schémy tabuľky vygeneruj jeden SELECT dotaz, "
     "ktorý odpovie na otázku. Použi iba uvedenú tabuľku a uvedené stĺpce "
-    "(presne tak, ako sú napísané). Rešpektuj nápovedu o filtrovaní, ak je uvedená. "
-    "Ak tabuľka neobsahuje stĺpce potrebné na odpoveď, vráť presne NO_DATA. "
-    "Vráť iba SQL alebo NO_DATA, bez vysvetlenia."
+    "(presne tak, ako sú napísané). Názvy stĺpcov s medzerou alebo diakritikou obaľ "
+    'do dvojitých úvodzoviek, napr. "Katastrálne územie"; reťazcové hodnoty do '
+    "jednoduchých úvodzoviek. Pridaj iba filtre, na ktoré sa otázka pýta; "
+    "nedopĺňaj ďalšie obmedzenia. Rešpektuj nápovedu o filtrovaní a zoznam prípustných "
+    "hodnôt, ak sú uvedené. Ak tabuľka neobsahuje stĺpce potrebné na odpoveď, vráť "
+    "presne NO_DATA. Vráť iba SQL alebo NO_DATA, bez vysvetlenia."
 )
-
-VERIFY_SYSTEM = (
-    "Si prísny kontrolór. Dostaneš otázku, schému tabuľky, SQL a výsledok. "
-    "Odpovedz iba YES alebo NO. "
-    "YES len ak SQL naozaj odpovedá na otázku pomocou uvedenej tabuľky a stĺpcov "
-    "(napr. správne filtruje hľadané územie a počíta to, na čo sa otázka pýta). "
-    "Inak NO."
-)
-
 
 def build_messages(
     query: str,
@@ -53,36 +47,46 @@ def build_sql_messages(
     schema: str,
     title: str | None = None,
     hints: Sequence[str] | None = None,
+    values: Sequence[str] | None = None,
 ) -> list[Message]:
     header = f"Dataset: {title}\n" if title else ""
     hint_text = ("\nNápoveda: " + " ".join(hints)) if hints else ""
+    value_text = ("\n" + "\n".join(values)) if values else ""
     return [
         {"role": "system", "content": SQL_SYSTEM},
         {
             "role": "user",
             "content": (
-                f"{header}Tabuľka: {table}\nStĺpce: {schema}{hint_text}\n"
+                f"{header}Tabuľka: {table}\nStĺpce: {schema}{hint_text}{value_text}\n"
                 f"Otázka: {query}\nVráť iba SELECT alebo NO_DATA."
             ),
         },
     ]
 
 
-def build_verify_messages(
-    query: str,
-    table: str,
-    schema: str,
-    sql: str,
-    result: str,
+REWRITE_SYSTEM = (
+    "Prepíš poslednú otázku používateľa na samostatnú otázku, ktorá dáva zmysel bez "
+    "predchádzajúceho kontextu. Zachovaj jazyk aj význam a doplň chýbajúce údaje "
+    "(napr. mestskú časť alebo rok) z konverzácie. Vráť iba prepísanú otázku, "
+    "bez vysvetlenia."
+)
+
+
+def build_rewrite_messages(
+    query: str, history: Sequence[dict[str, str]], max_turns: int = 6
 ) -> list[Message]:
+    recent = history[-max_turns:]
+    conversation = "\n".join(
+        f"{turn.get('role', 'user')}: {turn.get('content', '')}".strip()
+        for turn in recent
+    )
     return [
-        {"role": "system", "content": VERIFY_SYSTEM},
+        {"role": "system", "content": REWRITE_SYSTEM},
         {
             "role": "user",
             "content": (
-                f"Otázka: {query}\nTabuľka: {table}\nStĺpce: {schema}\n"
-                f"SQL: {sql}\nVýsledok:\n{result}\n"
-                "Odpovedá to na otázku? Odpovedz iba YES alebo NO."
+                f"Konverzácia:\n{conversation}\n\n"
+                f"Posledná otázka: {query}\nSamostatná otázka:"
             ),
         },
     ]

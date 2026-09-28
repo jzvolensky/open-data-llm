@@ -20,11 +20,13 @@ flowchart TD
     C1 --> A[EuroLLM answer + citations]
     D1 --> A
     D2 --> A
+    A --> V[Deterministic verification · numbers + URLs]
 ```
 
 The router is a small rule-based classifier. It sends data-shaped questions
 ("koľko", "how many", "priemer") to the data plane and everything else to the catalog
-plane. Geospatial questions can use both.
+plane. Geospatial questions can use both. Follow-up questions are first rewritten into a
+standalone question using the client-supplied conversation history.
 
 ## Components
 
@@ -35,9 +37,11 @@ plane. Geospatial questions can use both.
 - **Index** (`index/`) – dataset cards, embeddings, BM25.
 - **Retrieval** (`retrieve/`) – hybrid BM25 + vector + concept + place, fused with
   Reciprocal Rank Fusion (RRF), then reranked by a cross-encoder.
-- **Data plane** (`query/`) – read-only SQL over cached tables and a live ArcGIS client.
+- **Data plane** (`query/`) – read-only SQL over cached tables, a `column_values` dictionary
+  of low-cardinality values, and a live ArcGIS client.
 - **Geospatial** (`geo/`) – district gazetteer and spatial joins via DuckDB `spatial`.
-- **Generation** (`generate/`) – MLX provider, prompts, RAG orchestration and the router.
+- **Generation** (`generate/`) – MLX provider, prompts, RAG orchestration, the router and
+  deterministic answer verification.
 - **Interfaces** – CLI (`cli.py`), FastAPI (`app/`) and an MCP server (`mcp_server.py`).
 
 ## Data flow
@@ -49,8 +53,9 @@ plane. Geospatial questions can use both.
    similarity edges (IDF-weighted concept overlap) and curated Hub `related` links.
 4. `index build` writes one card per dataset, embeds it with `bge-m3` and builds the
    DuckDB FTS index.
-5. `ask` retrieves candidates, reranks them, and either answers from the cards or runs a
-   SQL query against a cached table.
+5. `ask` rewrites a follow-up into a standalone question, retrieves and reranks
+   candidates, and either answers from the cards or runs a grounded SQL query against a
+   cached table. Answers are checked deterministically (numbers and cited sources).
 
 ## Decisions and why
 
@@ -64,6 +69,10 @@ plane. Geospatial questions can use both.
   FTS index and the cached data tables (with `spatial` for geometry). No external services.
 - **Graph + concepts** – pure embeddings miss the portal's Slovak vocabulary. Canonical
   concepts and place matching make SK and EN queries behave the same.
+- **Stateless multi-turn** – the client sends the recent turns; the server only rewrites
+  the latest question, so no session state is stored.
+- **Deterministic verification** – answers are checked against the evidence with rules,
+  not with a second (slower, non-deterministic) model call.
 
 ## Latency & streaming
 

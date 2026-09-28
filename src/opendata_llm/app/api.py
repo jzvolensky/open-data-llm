@@ -48,10 +48,14 @@ PAGE = r"""<!doctype html>
   .spinner { width:15px; height:15px; border:2px solid #cbd5e1; border-top-color:var(--accent);
              border-radius:50%; animation:spin .9s linear infinite; }
   @keyframes spin { to { transform:rotate(360deg); } }
+  .thread { display:flex; flex-direction:column; gap:1.6rem; margin-top:1.4rem; }
+  .question { font-weight:600; margin:0 0 .5rem; }
+  .question::before { content:"› "; color:var(--accent); }
   .answer { background:#fff; border-left:5px solid var(--accent); border-radius:12px;
-            padding:1.1rem 1.25rem; margin:1rem 0; white-space:pre-wrap; line-height:1.6;
+            padding:1.1rem 1.25rem; margin:0 0 .6rem; white-space:pre-wrap; line-height:1.6;
             box-shadow:0 1px 3px #0f172a14; }
   .answer:empty { display:none; }
+  .verify { margin:.2rem 0 .4rem; font-size:.85rem; color:#b45309; }
   .sources { background:#f8fafc; border:1px solid var(--line); border-radius:12px;
              padding:1rem 1.25rem; margin-top:1rem; }
   .sources h2 { font-size:.75rem; letter-spacing:.08em; text-transform:uppercase;
@@ -74,33 +78,26 @@ PAGE = r"""<!doctype html>
 </form>
 
 <div class="status" id="status"><span class="spinner"></span><span id="statusText"></span></div>
-<div class="answer" id="answer"></div>
-<div class="sources" id="sources" style="display:none">
-  <h2>Zdroje / Sources</h2>
-  <ol id="sourceList"></ol>
-  <div class="evidence" id="evidence" style="display:none"></div>
-</div>
+<div class="thread" id="thread"></div>
 
 <script>
 const el = (id) => document.getElementById(id);
-let firstToken = true;
+let history = [];
+let current = null;
 
 async function ask(e){
   e.preventDefault();
   const q = el('q').value.trim();
   if(!q) return;
   el('go').disabled = true;
-  el('answer').textContent = '';
-  el('sourceList').innerHTML = '';
-  el('sources').style.display = 'none';
-  el('evidence').style.display = 'none';
+  el('q').value = '';
+  current = addExchange(q);
   el('status').classList.add('on');
   el('statusText').textContent = '…';
-  firstToken = true;
   try {
     const r = await fetch('/ask/stream', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({query:q})
+      body: JSON.stringify({query:q, history:history})
     });
     const reader = r.body.getReader();
     const dec = new TextDecoder();
@@ -117,11 +114,38 @@ async function ask(e){
       }
     }
   } catch(err) {
-    el('statusText').textContent = 'Chyba: ' + err;
+    if(current) current.answer.textContent += '\n[error] ' + err;
   } finally {
     el('status').classList.remove('on');
     el('go').disabled = false;
+    if(current){
+      history.push({role:'user', content:q});
+      history.push({role:'assistant', content:current.answer.textContent});
+      if(history.length > 12) history = history.slice(-12);
+    }
+    current = null;
   }
+}
+
+function addExchange(q){
+  const wrap = document.createElement('div');
+  wrap.className = 'exchange';
+  wrap.innerHTML =
+    '<div class="question">' + escapeHtml(q) + '</div>' +
+    '<div class="answer"></div>' +
+    '<div class="verify" style="display:none"></div>' +
+    '<div class="sources" style="display:none">' +
+      '<h2>Zdroje / Sources</h2><ol></ol>' +
+      '<div class="evidence" style="display:none"></div>' +
+    '</div>';
+  el('thread').appendChild(wrap);
+  return {
+    answer: wrap.querySelector('.answer'),
+    verify: wrap.querySelector('.verify'),
+    sources: wrap.querySelector('.sources'),
+    sourceList: wrap.querySelector('.sources ol'),
+    evidence: wrap.querySelector('.evidence')
+  };
 }
 
 function parseSSE(chunk){
@@ -136,35 +160,41 @@ function parseSSE(chunk){
 }
 
 function handle(event, data){
+  if(!current) return;
   if(event === 'status'){
     el('statusText').textContent = data.message;
   } else if(event === 'sources'){
-    renderSources(data.sources || []);
-    renderEvidence(data.data);
-    el('sources').style.display = 'block';
+    renderSources(current, data.sources || []);
+    renderEvidence(current, data.data);
+    current.sources.style.display = 'block';
   } else if(event === 'token'){
-    el('answer').textContent += data.text;
-    firstToken = false;
+    current.answer.textContent += data.text;
+  } else if(event === 'verification'){
+    if((data.warnings || []).length){
+      current.verify.textContent = '⚠️ ' + data.warnings.join('; ');
+      current.verify.style.display = 'block';
+    }
   } else if(event === 'error'){
-    el('answer').textContent += '\n[error] ' + data.error;
+    current.answer.textContent += '\n[error] ' + data.error;
   }
 }
 
-function renderSources(items){
-  el('sourceList').innerHTML = items.slice(0, 8).map(s =>
+function renderSources(ex, items){
+  ex.sourceList.innerHTML = items.slice(0, 8).map(s =>
     '<li><a href="' + s.url + '" target="_blank" rel="noopener">' +
     escapeHtml(s.title || s.dataset_id) + '</a></li>').join('');
 }
 
-function renderEvidence(d){
+function renderEvidence(ex, d){
   if(!d || !d.sql) return;
   let html = '<strong>Vypočítané z:</strong> ' + escapeHtml(d.title || '') +
              '<pre>' + escapeHtml(d.sql) + '</pre>';
+  if(d.note) html += escapeHtml(d.note) + '<br>';
   if(d.district){
     html += 'Filter: ' + escapeHtml((d.district_column || '') + ' = ' + (d.district_value || ''));
   }
-  el('evidence').innerHTML = html;
-  el('evidence').style.display = 'block';
+  ex.evidence.innerHTML = html;
+  ex.evidence.style.display = 'block';
 }
 
 function escapeHtml(s){
@@ -175,10 +205,21 @@ function escapeHtml(s){
 </html>"""
 
 
+class Turn(BaseModel):
+    role: str = "user"
+    content: str
+
+
 class QueryRequest(BaseModel):
     query: str
     top_k: int | None = None
     rerank: bool | None = None
+    history: list[Turn] | None = None
+
+    def history_dicts(self) -> list[dict[str, str]] | None:
+        if not self.history:
+            return None
+        return [turn.model_dump() for turn in self.history]
 
 
 def _sse(event: str, data: dict[str, Any]) -> str:
@@ -274,6 +315,7 @@ def create_app(config_path: str | None = None) -> FastAPI:
                 top_k=request.top_k,
                 rerank=request.rerank,
                 embedder=embedder(),
+                history=request.history_dicts(),
             )
         finally:
             catalog.close()
@@ -282,6 +324,8 @@ def create_app(config_path: str | None = None) -> FastAPI:
             "intent": result.intent,
             "sources": result.sources,
             "data": result.data,
+            "answer_verified": result.answer_verified,
+            "warnings": result.warnings,
         }
 
     @app.post("/ask/stream")
@@ -298,6 +342,7 @@ def create_app(config_path: str | None = None) -> FastAPI:
                     top_k=request.top_k,
                     rerank=request.rerank,
                     embedder=embedder(),
+                    history=request.history_dicts(),
                 ):
                     name = event.pop("event")
                     yield _sse(name, event)

@@ -25,12 +25,12 @@ How the project is organised and where to change things.
 │   ├── semantic/              # vocab.py (concepts), graph.py (knowledge graph)
 │   ├── index/                 # cards.py, embed.py, store.py, pipeline.py
 │   ├── retrieve/              # hybrid.py (RRF), rerank.py (cross-encoder)
-│   ├── query/                 # load.py (CSV->DuckDB), sql.py, arcgis.py
+│   ├── query/                 # load.py (CSV->DuckDB), profile.py (value dict), sql.py, arcgis.py
 │   ├── geo/                   # gazetteer.py, layers.py, query.py, spatial.py
-│   ├── generate/              # router.py, prompts.py, rag.py, mlx_provider.py
+│   ├── generate/              # router.py, prompts.py, rag.py, verify.py, mlx_provider.py
 │   ├── app/api.py             # FastAPI (/search, /ask, /ask/stream)
 │   ├── mcp_server.py          # MCP tools
-│   └── eval/                  # run.py, questions.jsonl
+│   └── eval/                  # run.py (typed cases), questions.jsonl
 ├── tests/
 ├── data/                      # catalog.duckdb, downloads/, raw/ (gitignored)
 ├── models/                    # local model (gitignored)
@@ -47,8 +47,10 @@ How the project is organised and where to change things.
 | Cards | `index/cards.py` | the text that gets embedded and indexed |
 | Retrieval | `retrieve/hybrid.py` | vector + BM25 + concepts + places, fused with RRF |
 | Data plane | `query/` | CSV→DuckDB views, read-only SQL, live ArcGIS |
+| Value dictionary | `query/profile.py` | `column_values` for low-cardinality columns |
 | Geospatial | `geo/` | gazetteer + `ST_Intersects` / `ST_Within` |
-| Answering | `generate/rag.py` | retrieval, optional SQL, prompt assembly |
+| Answering | `generate/rag.py` | rewrite, retrieval, optional SQL, prompt assembly |
+| Verification | `generate/verify.py` | deterministic number/URL checks on answers |
 | Routing | `generate/router.py` | decides `data` / `geospatial` / `discovery` |
 
 ## Configuration
@@ -81,9 +83,11 @@ Point the CLI at a different config with `--config path.yaml` (or `make build CO
 
 - `generation.max_tokens` – the main latency dial. Generation time scales with it;
   384 keeps answers short.
-- `generation.temperature` – 0.2 is used for grounded, factual answers.
-- Prompt wording lives in `generate/prompts.py` (`SYSTEM`, `SQL_SYSTEM`,
-  `build_context`). Context size is capped by `CONTEXT_SOURCES` and `max_chars`.
+- `generation.temperature` – 0.2 is used for grounded, factual answers. SQL generation and
+  the follow-up rewrite are called with `temperature=0` (greedy) so results are stable.
+- Prompt wording lives in `generate/prompts.py` (`SYSTEM`, `SQL_SYSTEM`, `REWRITE_SYSTEM`,
+  `build_context`, `build_sql_messages`, `build_rewrite_messages`). Context size is capped
+  by `CONTEXT_SOURCES` and `max_chars`.
 
 ## Tuning ingestion and downloads
 
@@ -94,20 +98,33 @@ Point the CLI at a different config with `--config path.yaml` (or `make build CO
 
 ## Data-path guardrails
 
-For numeric questions the model writes SQL, but the result is **validated** before it is
-trusted (`generate/rag.py`):
+For numeric questions the model writes SQL, but every step around it is deterministic
+(`generate/rag.py`). The data path is only entered when the router classifies the question
+as `data`, and then:
 
-- the SQL must reference the candidate table;
-- if the question names a district, it must filter a district-like column
-  (`Katastrálne územie`, `KU`, `MESTSKA_CAST`, …) — the exact column and value are probed
-  and passed to the model as a hint;
-- the result must be non-empty; and
-- a second model pass confirms the SQL actually answers the question.
+1. **Relevance gate** – a candidate table is considered only if the question's content
+   stems overlap its title, card or schema. If none does, the assistant declines instead
+   of forcing SQL onto an unrelated table.
+2. **Value dictionary** – `query/profile.py` stores the distinct values of
+   low-cardinality columns in `column_values`. Values the question quotes verbatim are
+   offered to the model so it does not invent filter values.
+3. **District resolution** – a district named in the question is matched to the exact
+   stored spelling (via `column_values`, with an `ILIKE` fallback), and the model is told
+   which column and value to filter.
+4. **Grounding** – the SQL must reference the candidate table, and, when a district was
+   named, filter a district-like column (`Katastrálne územie`, `KU`, `MESTSKA_CAST`, …).
+   Identifiers the model wrapped in single quotes are normalized to double quotes.
+5. **Non-empty result** – otherwise the assistant declines, unless the filter value was a
+   **category that does not exist**, in which case it returns the real breakdown of that
+   column and says the category is undefined.
+6. **Deterministic verification** – the generated prose is checked by `generate/verify.py`:
+   every number must be present in, or derivable from, the evidence, and every cited URL
+   must be a retrieved source. Failures are annotated as `warnings`; no second model call
+   is made.
 
 Candidate tables are ranked by semantic retrieval + concept overlap + a lightweight
-Slovak stemmer (`semantic/vocab.py`), and they use the **real cached CSV columns**. If no
-candidate passes, the assistant says it cannot answer from cached data instead of
-guessing. Computed results are returned with their SQL, table and filter as evidence.
+Slovak stemmer (`semantic/vocab.py`), and they use the **real cached CSV columns**.
+Computed results are returned with their SQL, table and filter as evidence.
 
 ## Router policy
 
@@ -137,8 +154,20 @@ searchable (BM25) and embeddable, so keep it short and factual. Rebuild with
 
 ## Evaluation set
 
-Extend `src/opendata_llm/eval/questions.jsonl` with `{id, lang, query, expect}` entries
-(`expect` is a lowercase title substring). Run `bdata eval` and compare MRR/nDCG.
+`src/opendata_llm/eval/questions.jsonl` is a typed gold set (`discovery`, `data`, `geo`,
+`abstain`, `followup`). Discovery cases use `{id, lang, query, expect}`; answer cases add
+`gold`, `dataset`, `district` and, for follow-ups, `history`. See
+[Evaluation](/evaluation) for the full schema and metric definitions.
+
+```bash
+bdata eval --type discovery    # ranking only (fast, no model)
+bdata eval --type data         # execution accuracy (loads the model)
+bdata eval                     # all types; writes reports/eval/eval-<ts>.json
+```
+
+A `data` case should use a value you can verify against the cached table
+(`bdata data sql "SELECT …"`). New answer cases do not affect the discovery metrics, which
+are computed per type.
 
 ## Extending the interfaces
 
@@ -167,3 +196,6 @@ make docs-serve  # this site at http://localhost:3000
   stalls.
 - **`models/` and `data/` are gitignored** – share them via a knowledge pack or a release
   artifact, not git.
+- **`column_values` is derived** – after `make download` adds tables, rerun
+  `make data` (or `bdata data profile`) so exact-value matching stays current. Metadata
+  packs drop it, so restore + `make data` to rebuild it locally.

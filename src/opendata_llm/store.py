@@ -116,6 +116,14 @@ CREATE TABLE IF NOT EXISTS ingest_runs (
     records INTEGER,
     detail VARCHAR
 );
+
+CREATE TABLE IF NOT EXISTS column_values (
+    dataset_id VARCHAR,
+    column_name VARCHAR,
+    value VARCHAR,
+    n BIGINT,
+    PRIMARY KEY (dataset_id, column_name, value)
+);
 """
 
 DATASET_COLS: tuple[str, ...] = (

@@ -413,7 +413,6 @@ def fold(text: str) -> str:
     return _NON_WORD.sub(" ", ascii_text).strip()
 
 
-#: Light Slovak suffix list for approximate stem matching (applied to folded text).
 _SUFFIXES = (
     "iami",
     "ach",

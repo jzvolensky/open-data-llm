@@ -33,9 +33,10 @@ bdata-pack/
   NOTICE             # CC BY 4.0 attribution
 ```
 
-The metadata pack is small (~5 MB). Cached-table views are intentionally dropped so the
-pack is self-consistent without the CSV files; run `make download && make data` after
-restoring if you want the data plane offline.
+The metadata pack is small (~5 MB). Cached-table views, the `data_tables` registry and the
+derived `column_values` dictionary are intentionally dropped so the pack is self-consistent
+without the CSV files; run `make download && make data` after restoring if you want the
+data plane — including exact-value matching — offline.
 
 ## Build and restore
 

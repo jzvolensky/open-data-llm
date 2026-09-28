@@ -72,7 +72,40 @@ bdata data live "počet priestupkov podľa mestských častí" \
 ```
 
 Asistent používa tie isté cesty automaticky: pri dátových otázkach vygeneruje `SELECT`,
-spustí ho v režime iba na čítanie a výsledok vráti modelu.
+spustí ho v režime iba na čítanie a výsledok vráti modelu. Každá odpoveď sa následne
+overuje deterministicky – každé číslo musí byť podložené výsledkom dopytu a každá
+citovaná URL musí byť jedným zo získaných zdrojov. Zlyhania sa hlásia ako upozornenia
+(`answer_verified`), bez ďalšieho volania modelu.
+
+Znovu zostavte slovník hodnôt (súčasť `make data`):
+
+```bash
+bdata data profile
+```
+
+## Slovník hodnôt a nejednoznačnosť
+
+`make data` profiluje každú načítanú tabuľku do `column_values`: rôzne hodnoty
+nízkokardinalitných stĺpcov (≤ 50 hodnôt, prvých 200 000 riadkov). Slovník sa používa na
+
+- presné priradenie mestskej časti k uloženému tvaru,
+- ponuku skutočných hodnôt stĺpcov, ktoré otázka cituje, a
+- odhalenie požadovanej kategórie, ktorú dáta neobsahujú.
+
+Ak sa otázka pýta na kategóriu, ktorá neexistuje (napr. *obytné* medzi `Druh pozemku`),
+asistent nehádá ani neodmietne. Vráti skutočné rozloženie daného stĺpca a uvedie, že
+požadovaná kategória nie je definovaná.
+
+## Nadväzujúce otázky
+
+Server zostáva bezstavový: klient posiela posledné ťahy a server prepíše najnovšiu
+otázku na samostatnú otázku pred vyhľadávaním a SQL.
+
+- API: `POST /ask` a `POST /ask/stream` prijímajú voliteľné
+  `history: [{role, content}, ...]` (posledných ~6 ťahov).
+- CLI: `bdata ask "A koľko v Ružinove?" --turn "user:Koľko pozemkov v Petržalke?"`.
+- Streamovací endpoint vysiela stav `rewriting` a vracia prepísanú otázku v udalosti
+  `sources`.
 
 ## Geopriestor
 

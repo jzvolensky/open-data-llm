@@ -25,12 +25,12 @@ Ako je projekt usporiadaný a kde čo meniť.
 │   ├── semantic/              # vocab.py (koncepty), graph.py (znalostný graf)
 │   ├── index/                 # cards.py, embed.py, store.py, pipeline.py
 │   ├── retrieve/              # hybrid.py (RRF), rerank.py (cross-encoder)
-│   ├── query/                 # load.py (CSV->DuckDB), sql.py, arcgis.py
+│   ├── query/                 # load.py (CSV->DuckDB), profile.py (slovník hodnôt), sql.py, arcgis.py
 │   ├── geo/                   # gazetteer.py, layers.py, query.py, spatial.py
-│   ├── generate/              # router.py, prompts.py, rag.py, mlx_provider.py
+│   ├── generate/              # router.py, prompts.py, rag.py, verify.py, mlx_provider.py
 │   ├── app/api.py             # FastAPI (/search, /ask, /ask/stream)
 │   ├── mcp_server.py          # MCP nástroje
-│   └── eval/                  # run.py, questions.jsonl
+│   └── eval/                  # run.py (typované prípady), questions.jsonl
 ├── tests/
 ├── data/                      # catalog.duckdb, downloads/, raw/ (gitignored)
 ├── models/                    # lokálny model (gitignored)
@@ -47,8 +47,10 @@ Ako je projekt usporiadaný a kde čo meniť.
 | Karty | `index/cards.py` | text, ktorý sa embeduje a indexuje |
 | Vyhľadávanie | `retrieve/hybrid.py` | vektory + BM25 + koncepty + mestské časti, RRF |
 | Dátová rovina | `query/` | CSV→DuckDB pohľady, SQL iba na čítanie, živý ArcGIS |
+| Slovník hodnôt | `query/profile.py` | `column_values` pre nízkokardinalitné stĺpce |
 | Geopriestor | `geo/` | gazetteer + `ST_Intersects` / `ST_Within` |
-| Odpovedanie | `generate/rag.py` | vyhľadanie, voliteľné SQL, zostavenie promptu |
+| Odpovedanie | `generate/rag.py` | prepis, vyhľadanie, voliteľné SQL, zostavenie promptu |
+| Overenie | `generate/verify.py` | deterministické kontroly čísel/URL v odpovediach |
 | Routing | `generate/router.py` | rozhoduje `data` / `geospatial` / `discovery` |
 
 ## Konfigurácia
@@ -81,9 +83,11 @@ Iný config zadáte cez `--config cesta.yaml` (alebo `make build CONFIG=...`).
 
 - `generation.max_tokens` – hlavný dial latencie. Čas rastie s ním; 384 drží odpovede
   krátke.
-- `generation.temperature` – 0,2 sa používa na vecné, podložené odpovede.
-- Znenie promptov je v `generate/prompts.py` (`SYSTEM`, `SQL_SYSTEM`,
-  `build_context`). Veľkosť kontextu obmedzujú `CONTEXT_SOURCES` a `max_chars`.
+- `generation.temperature` – 0,2 sa používa na vecné, podložené odpovede. Generovanie SQL
+  a prepis nadväzujúcej otázky bežia s `temperature=0` (greedy), takže výsledky sú stabilné.
+- Znenie promptov je v `generate/prompts.py` (`SYSTEM`, `SQL_SYSTEM`, `REWRITE_SYSTEM`,
+  `build_context`, `build_sql_messages`, `build_rewrite_messages`). Veľkosť kontextu
+  obmedzujú `CONTEXT_SOURCES` a `max_chars`.
 
 ## Ladenie ingestu a sťahovania
 
@@ -94,20 +98,32 @@ Iný config zadáte cez `--config cesta.yaml` (alebo `make build CONFIG=...`).
 
 ## Ochrany dátovej cesty
 
-Pri numerických otázkach model píše SQL, ale výsledok sa pred použitím **validuje**
-(`generate/rag.py`):
+Pri numerických otázkach model píše SQL, ale každý krok okolo neho je deterministický
+(`generate/rag.py`). Dátová cesta sa použije len vtedy, keď router otázku klasifikuje ako
+`data`, a potom:
 
-- SQL musí odkazovať na kandidátsku tabuľku;
-- ak otázka spomína mestskú časť, musí filtrovať stĺpec typu územia
-  (`Katastrálne územie`, `KU`, `MESTSKA_CAST`, …) — presný stĺpec a hodnota sa zistia
-  a model dostane nápovedu;
-- výsledok musí byť neprázdny; a
-- druhé prebehnutie modelu potvrdí, že SQL naozaj odpovedá na otázku.
+1. **Relevantnostná brána** – kandidátska tabuľka sa zváži len vtedy, ak sa korene
+   obsahových slov otázky prekrývajú s jej názvom, kartou alebo schémou. Ak žiadna nie,
+   asistent odmietne namiesto vynútenia SQL nad nesúvisiacou tabuľkou.
+2. **Slovník hodnôt** – `query/profile.py` ukladá rôzne hodnoty nízkokardinalitných
+   stĺpcov do `column_values`. Hodnoty, ktoré otázka cituje doslovne, sa ponúknu modelu,
+   aby si nevymýšľal hodnoty filtra.
+3. **Určenie mestskej časti** – mestská časť z otázky sa priradí k presnému uloženému
+   tvaru (cez `column_values`, s fallbackom `ILIKE`) a model dostane stĺpec aj hodnotu.
+4. **Podloženie** – SQL musí odkazovať na kandidátsku tabuľku a, ak bola uvedená mestská
+   časť, filtrovať stĺpec typu územia (`Katastrálne územie`, `KU`, `MESTSKA_CAST`, …).
+   Identifikátory, ktoré model obalil jednoduchými úvodzovkami, sa normalizujú na dvojité.
+5. **Neprázdny výsledok** – inak asistent odmietne, okrem prípadu, keď bola hodnotou filtra
+   **kategória, ktorá neexistuje**: vtedy vráti skutočné rozloženie daného stĺpca a uvedie,
+   že kategória nie je definovaná.
+6. **Deterministické overenie** – vygenerovaný text skontroluje `generate/verify.py`:
+   každé číslo musí byť prítomné v evidencii alebo z nej odvoditeľné a každá citovaná URL
+   musí byť získaný zdroj. Zlyhania sa anotujú ako `warnings`; nerobí sa druhé volanie
+   modelu.
 
 Kandidátske tabuľky sa zoraďujú podľa sémantického vyhľadania + prieniku konceptov +
 slovenského stemmera (`semantic/vocab.py`) a používajú **reálne stĺpce uloženého CSV**.
-Ak neprejde žiadny kandidát, asistent povie, že to z uložených dát nevie, namiesto
-hádania. Vypočítané výsledky sa vracajú spolu s SQL, tabuľkou a filtrom ako dôkaz.
+Vypočítané výsledky sa vracajú spolu s SQL, tabuľkou a filtrom ako dôkaz.
 
 ## Politika routera
 
@@ -137,9 +153,20 @@ vyhľadateľným (BM25) aj embedovaným, preto to držte krátke a vecné. Znovu
 
 ## Evaluačná množina
 
-Rozšírte `src/opendata_llm/eval/questions.jsonl` o položky
-`{id, lang, query, expect}` (`expect` je podreťazec názvu malými písmenami). Spustite
-`bdata eval` a porovnajte MRR/nDCG.
+`src/opendata_llm/eval/questions.jsonl` je typovaná zlatá množina (`discovery`, `data`,
+`geo`, `abstain`, `followup`). Prípady `discovery` používajú `{id, lang, query, expect}`;
+odpovedové pridávajú `gold`, `dataset`, `district` a pri nadväzujúcich aj `history`. Úplnú
+schému a definície metrík nájdete vo [Vyhodnotení](/evaluation).
+
+```bash
+bdata eval --type discovery    # iba poradie (rýchle, bez modelu)
+bdata eval --type data         # presnosť vykonania (načíta model)
+bdata eval                     # všetky typy; zapíše reports/eval/eval-<ts>.json
+```
+
+Pri `data` použite hodnotu, ktorú viete overiť proti uložené tabuľke
+(`bdata data sql "SELECT …"`). Nové odpovedové prípady neovplyvnia metriky vyhľadávania,
+ktoré sa počítajú podľa typu.
 
 ## Rozširovanie rozhraní
 
@@ -168,3 +195,6 @@ make docs-serve  # táto stránka na http://localhost:3000
   zasekne.
 - **`models/` a `data/` sú gitignored** – zdieľajte ich cez vedomostný balík alebo
   release artefakt, nie cez git.
+- **`column_values` je odvodená** – keď `make download` pridá tabuľky, znova spustite
+  `make data` (alebo `bdata data profile`), aby presné priraďovanie hodnôt zostalo aktuálne.
+  Metadatové balíky ju odstraňujú, preto po obnovení spustite `make data`.

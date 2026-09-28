@@ -34,6 +34,8 @@ def test_stream_events_ordering(monkeypatch) -> None:
     assert names[-1] == "done"
     # The answer streams only after the sources event.
     assert names.index("sources") < names.index("token")
+    # A deterministic verification event follows the answer.
+    assert names.index("token") < names.index("verification") < names.index("done")
 
     text = "".join(e["text"] for e in events if e["event"] == "token")
     assert text == "Hello world"
